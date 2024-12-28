@@ -1,61 +1,253 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Saved Pages</title>
+  <title>Save for Later</title>
   <style>
     body {
-      width: 400px;
-      padding: 10px;
+      width: 500px;
+      padding: 15px;
       font-family: Arial, sans-serif;
     }
-    .page-card {
+    
+    /* 顶部操作区 */
+    .actions {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 15px;
+    }
+    
+    /* 搜索和过滤区 */
+    .search-filter {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 15px;
+    }
+    
+    input[type="text"], select {
+      padding: 8px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 14px;
+    }
+    
+    .search-box {
+      flex: 1;
+    }
+    
+    /* 标签管理 */
+    /* 按钮样式 */
+    button {
+      padding: 8px 12px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+
+    #newTagAdd {
+      background: #c9ebcb;
+      color: rgb(61, 61, 61);
+    }
+
+    .tags-input {
+      display: flex;
+      gap: 5px;
+      flex-wrap: wrap;
+      margin: 10px 0;
+    }
+    
+    .tag {
+      background: #e0e0e0;
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-size: 12px;
       display: flex;
       align-items: center;
-      padding: 10px;
-      margin-bottom: 10px;
-      border: 1px solid #ccc;
-      border-radius: 4px;
+      gap: 5px;
     }
+    
+    .tag .remove {
+      cursor: pointer;
+      color: #666;
+    }
+    
+    .primary-btn {
+      background: #4CAF50;
+      color: white;
+    }
+    
+    .secondary-btn {
+      background: #f0f0f0;
+      color: #333;
+    }
+    
+    /* #pagesList {
+      width: 100%; 
+      max-width: 100%; 
+    } */
+
+    /* 卡片样式优化 */
+    .page-card1 {
+      display: flex;
+      padding: 12px;
+      margin-bottom: 12px;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      transition: box-shadow 0.3s;
+      /* width: 100%; 
+      max-width: 100%; */
+    }
+    .page-card {
+  display: flex; /* 横向排列 */
+  justify-content: space-between; /* 两端对齐 */
+  align-items: center; /* 垂直居中 */
+  padding: 12px;
+  margin-bottom: 12px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  transition: box-shadow 0.3s;
+  width: 100%; /* 确保卡片不超出父元素 */
+  box-sizing: border-box; /* 包括 padding 在内 */
+}
+    
+    .page-card:hover {
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    
     .thumbnail {
       width: 120px;
       height: 67px;
       object-fit: cover;
-      margin-right: 10px;
+      border-radius: 4px;
+      margin-right: 12px;
     }
+    
     .page-info {
       flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      overflow: hidden; /* 隐藏多余内容 */
+      word-wrap: break-word; /* 启用换行 */
     }
+    
+    .page-title1 {
+      font-weight: bold;
+      font-size: 14px;
+    }
+    
+    /* 页面标题 */
     .page-title {
       font-weight: bold;
-      margin-bottom: 5px;
+      font-size: 14px;
+      max-width: 100%; /* 限制宽度 */
+      white-space: nowrap; /* 禁止换行 */
+      overflow: hidden; /* 隐藏溢出内容 */
+      text-overflow: ellipsis; /* 溢出部分显示省略号 */
     }
+
+    /* 页面 URL */
+    .page-url {
+      font-size: 12px;
+      color: #666;
+      max-width: 100%; /* 限制宽度 */
+      white-space: nowrap; /* 禁止换行 */
+      overflow: hidden; /* 隐藏溢出内容 */
+      text-overflow: ellipsis; /* 溢出部分显示省略号 */
+    }
+
+    .page-tags {
+      display: flex;
+      gap: 5px;
+      flex-wrap: wrap;
+    }
+    
     .timestamp {
-      font-size: 0.8em;
+      font-size: 12px;
       color: #666;
     }
-    .delete-btn {
-      padding: 5px 10px;
-      background: #ff4444;
-      color: white;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
+    
+    .card-actions {
+      /* flex: 1; */
+      display: flex;
+      gap: 8px;
+      margin-left: 8px;
     }
-    .save-btn {
-      padding: 10px;
-      background: #4CAF50;
-      color: white;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
+    
+    /* 导入/导出对话框 */
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0,0,0,0.5);
+      align-items: center;
+      justify-content: center;
+    }
+    
+    .modal-content {
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      max-width: 400px;
       width: 100%;
-      margin-bottom: 10px;
+    }
+    
+    /* 云同步状态 */
+    .sync-status {
+      font-size: 12px;
+      color: #666;
+      margin-top: 5px;
     }
   </style>
 </head>
 <body>
-  <button id="saveButton" class="save-btn">Save Current Page</button>
+  <div class="actions">
+    <button id="saveButton" class="primary-btn">Save Current Page</button>
+    <button id="exportBtn" class="secondary-btn">Export</button>
+    <button id="importBtn" class="secondary-btn">Import</button>
+    <button id="syncBtn" class="secondary-btn">Sync</button>
+  </div>
+  
+  <div class="search-filter">
+    <input type="text" id="searchBox" class="search-box" placeholder="Search saved pages...">
+    <select id="tagFilter">
+      <option value="">All Tags</option>
+    </select>
+  </div>
+  
   <div id="pagesList"></div>
+  
+  <!-- 添加标签对话框 -->
+  <div id="addTagModal" class="modal">
+    <div class="modal-content">
+      <h3>Add Tags</h3>
+      <div class="tag-add">
+        <input type="text" id="newTagInput" placeholder="Enter tag name">
+        <button id="newTagAdd">add</button>
+      </div>
+      <div class="tags-input" id="currentTags"></div>
+      <div class="modal-actions">
+        <button class="primary-btn" id="saveTagsBtn">Save</button>
+        <button class="secondary-btn" id="cancelTagsBtn">Cancel</button>
+      </div>
+    </div>
+  </div>
+  
+  <!-- 导入/导出对话框 -->
+  <div id="importExportModal" class="modal">
+    <div class="modal-content">
+      <h3 id="modalTitle">Import/Export Data</h3>
+      <textarea id="importExportData" rows="10" style="width: 100%; margin: 10px 0;"></textarea>
+      <div class="modal-actions">
+        <button class="primary-btn" id="confirmImportExportBtn">Confirm</button>
+        <button class="secondary-btn" id="cancelImportExportBtn">Cancel</button>
+      </div>
+    </div>
+  </div>
+  
   <script src="popup.js"></script>
 </body>
 </html>
