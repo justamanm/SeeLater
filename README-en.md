@@ -107,6 +107,6 @@ This project is released under the MIT License. You are free to modify, distribu
 ---
 
 ### Screenshot Examples
-![show1](pic1.png)
+![show](pic1.png)
 
-![show2](pic2.png)
+![show](pic2.png)

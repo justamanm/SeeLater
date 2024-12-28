@@ -108,6 +108,6 @@
 ---
 
 ### 示例截图
-![show1](pic1.png)
+![show](pic1.png)
 
-![show2](pic2.png)
+![show](pic2.png)
