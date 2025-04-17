@@ -100,25 +100,282 @@ async function getPageMetadata(tab) {
   let thumbnail = '';
   
   try {
-    const [result] = await chrome.scripting.executeScript({
-      target: { tabId: tab.id },
-      func: () => {
-        const ogImage = document.querySelector('meta[property="og:image"]');
-        const thumbnail = ogImage ? ogImage.content : '';
-        
-        const isYouTube = window.location.hostname.includes('youtube.com');
-        const videoId = isYouTube ? new URLSearchParams(window.location.search).get('v') : null;
-        
-        return { thumbnail, videoId };
+    // 使用URL和标准通用API检测缩略图，无需脚本执行权限
+    
+    // 检查是否是YouTube链接
+    if (tab.url.includes('youtube.com/watch') || tab.url.includes('youtu.be/')) {
+      let videoId = '';
+      
+      // 从YouTube URL提取视频ID
+      if (tab.url.includes('youtube.com/watch')) {
+        const url = new URL(tab.url);
+        videoId = url.searchParams.get('v');
+      } else if (tab.url.includes('youtu.be/')) {
+        videoId = tab.url.split('youtu.be/')[1].split('?')[0];
       }
-    });
+      
+      if (videoId) {
+        thumbnail = `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
+      }
+    } 
     
-    const { thumbnail: ogThumbnail, videoId } = result.result;
+    // 检查是否是斗鱼直播链接
+    else if (tab.url.includes('douyu.com/')) {
+      let roomId = '';
+      let is_topic = false;
+      // 检查是否是主题页面格式URL（包含rid参数）
+      const topicRidMatch = tab.url.match(/douyu\.com\/topic\/.*?\?.*?rid=(\d+)/);
+      if (topicRidMatch && topicRidMatch[1]) {
+        roomId = topicRidMatch[1];
+        is_topic = true;
+      } 
+      // 否则尝试普通直播间URL格式
+      else {
+        const roomMatch = tab.url.match(/douyu\.com\/(\d+)/);
+        if (roomMatch && roomMatch[1]) {
+          roomId = roomMatch[1];
+        }
+      }
+      
+      // 如果成功获取到房间ID，继续获取缩略图
+      if (roomId) {
+        // 使用斗鱼API获取直播间信息，包括缩略图
+        try {
+          const response = await fetch(`https://www.douyu.com/betard/${roomId}`);
+          const data = await response.json();
+          
+          // 检查room属性是否存在
+          if (data && data.room) {
+            const roomInfo = data.room;
+            
+            // 如果API请求成功并返回了直播间缩略图
+            if (roomInfo.room_src) {
+              console.log(roomInfo.room_src);
+              console.log(roomInfo.coverSrc);
+              console.log(is_topic);
+              let roomSrc;
+              if (is_topic && roomInfo.coverSrc) {
+                roomSrc = roomInfo.coverSrc
+              } else {
+                roomSrc = roomInfo.room_src;
+              }
+              // 将dy4替换为dy1获取不同尺寸的缩略图
+              if (roomSrc.endsWith('dy4')) {
+                roomSrc = roomSrc.replace(/dy4$/, 'dy1');
+              }
+              if (is_topic) {
+                thumbnail = roomSrc
+              } else {
+                thumbnail = `https://rpic.douyucdn.cn/${roomSrc}`; // 拼接完整缩略图URL
+              }
+            } else {
+              // 如果没有获取到缩略图，使用斗鱼默认图标
+              thumbnail = 'https://sta-op.douyucdn.cn/douyu-ndm/assets/favicon.ico';
+            }
+          } else {
+            // API请求失败或数据格式不符，使用默认图标
+            thumbnail = 'https://sta-op.douyucdn.cn/douyu-ndm/assets/favicon.ico';
+          }
+        } catch (error) {
+          console.error('获取斗鱼直播间信息失败:', error);
+          thumbnail = 'https://sta-op.douyucdn.cn/douyu-ndm/assets/favicon.ico';
+        }
+      }
+    }
     
-    if (videoId) {
-      thumbnail = `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
-    } else {
-      thumbnail = ogThumbnail;
+    // 检查是否是Bilibili普通视频链接
+    else if (tab.url.includes('bilibili.com/video/')) {
+      let bvid = '';
+      
+      // 从Bilibili URL提取视频ID (BV号)
+      const bvMatch = tab.url.match(/bilibili\.com\/video\/(BV[a-zA-Z0-9]+)/);
+      if (bvMatch && bvMatch[1]) {
+        bvid = bvMatch[1];
+        
+        // 使用B站API获取视频信息，包括封面图
+        try {
+          const response = await fetch(`https://api.bilibili.com/x/web-interface/view?bvid=${bvid}`);
+          const data = await response.json();
+          
+          // 如果API请求成功并返回了视频信息
+          if (data && data.code === 0 && data.data && data.data.pic) {
+            thumbnail = data.data.pic; // 使用视频实际封面图
+          } else {
+            // API请求失败，使用默认图标
+            thumbnail = 'https://www.bilibili.com/favicon.ico';
+          }
+        } catch (error) {
+          console.error('获取B站视频信息失败:', error);
+          thumbnail = 'https://www.bilibili.com/favicon.ico';
+        }
+      }
+    }
+    // 检查是否是Bilibili剧集/番剧链接 (ep格式)
+    else if (tab.url.includes('bilibili.com/bangumi/play/ep')) {
+      let epId = '';
+      
+      // 从Bilibili URL提取剧集ID (ep_id)
+      const epMatch = tab.url.match(/play\/ep(\d+)/);
+      if (epMatch && epMatch[1]) {
+        epId = epMatch[1];
+        
+        // 使用B站剧集API获取视频信息，包括封面图
+        try {
+          const response = await fetch(`https://api.bilibili.com/pgc/view/web/season?ep_id=${epId}`);
+          const data = await response.json();
+          
+          // 如果API请求成功并返回了剧集信息
+          if (data && data.code === 0 && data.result && data.result.cover) {
+            thumbnail = data.result.cover; // 使用剧集实际封面图
+          } else {
+            // API请求失败，使用默认图标
+            thumbnail = 'https://www.bilibili.com/favicon.ico';
+          }
+        } catch (error) {
+          console.error('获取B站剧集信息失败:', error);
+          thumbnail = 'https://www.bilibili.com/favicon.ico';
+        }
+      }
+    }
+    // 检查是否是Bilibili剧集/番剧链接 (ss格式)
+    else if (tab.url.includes('bilibili.com/bangumi/play/ss')) {
+      let seasonId = '';
+      
+      // 从Bilibili URL提取剧集ID (season_id)
+      const ssMatch = tab.url.match(/play\/ss(\d+)/);
+      if (ssMatch && ssMatch[1]) {
+        seasonId = ssMatch[1];
+        
+        try {
+          // 第一步：通过season_id获取剧集列表，提取第一集的ep_id
+          const episodeListResponse = await fetch(`https://api.bilibili.com/pgc/view/web/ep/list?season_id=${seasonId}`);
+          const episodeListData = await episodeListResponse.json();
+          
+          if (episodeListData && episodeListData.code === 0 && 
+              episodeListData.result && episodeListData.result.episodes && 
+              episodeListData.result.episodes.length > 0 && 
+              episodeListData.result.episodes[0].ep_id) {
+            
+            const epId = episodeListData.result.episodes[0].ep_id;
+            
+            // 第二步：通过获取到的ep_id获取剧集信息，包括封面图
+            const response = await fetch(`https://api.bilibili.com/pgc/view/web/season?ep_id=${epId}`);
+            const data = await response.json();
+            
+            // 如果API请求成功并返回了剧集信息
+            if (data && data.code === 0 && data.result && data.result.cover) {
+              thumbnail = data.result.cover; // 使用剧集实际封面图
+            } else {
+              // API请求失败，使用默认图标
+              thumbnail = 'https://www.bilibili.com/favicon.ico';
+            }
+          } else {
+            // 获取剧集列表失败，使用默认图标
+            thumbnail = 'https://www.bilibili.com/favicon.ico';
+          }
+        } catch (error) {
+          console.error('获取B站剧集信息失败:', error);
+          thumbnail = 'https://www.bilibili.com/favicon.ico';
+        }
+      }
+    }
+    // 检查是否是Vimeo链接
+    else if (tab.url.includes('vimeo.com/')) {
+      let vimeoId = '';
+      
+      // 从Vimeo URL提取视频ID
+      const vimeoMatch = tab.url.match(/vimeo\.com\/(\d+)/);
+      if (vimeoMatch && vimeoMatch[1]) {
+        vimeoId = vimeoMatch[1];
+        thumbnail = `https://i.vimeocdn.com/video/${vimeoId}_640.jpg`;
+      }
+    }
+    // 检查是否是优酷链接
+    else if (tab.url.includes('youku.com/')) {
+      try {
+        // 直接请求当前URL获取页面内容
+        const response = await fetch(tab.url);
+        const html = await response.text();
+        
+        // 使用正则表达式从页面内容中提取封面图URL
+        const showImgMatch = html.match(/"showImgV":\s*"([^"]+)"/);
+        
+        if (showImgMatch && showImgMatch[1]) {
+          // 提取到封面图URL，需要处理转义字符
+          let imgUrl = showImgMatch[1];
+          
+          // 将Unicode转义序列(\u002F)转换为实际字符(/)
+          imgUrl = imgUrl.replace(/\\u002F/g, '/');
+          
+          // 确保URL格式正确
+          if (imgUrl.startsWith('http')) {
+            thumbnail = imgUrl;
+          } else if (imgUrl.startsWith('//')) {
+            thumbnail = 'https:' + imgUrl;
+          } else if (imgUrl.startsWith('/')) {
+            thumbnail = 'https://www.youku.com' + imgUrl;
+          } else {
+            thumbnail = 'https://' + imgUrl;
+          }
+        } else {
+          // 如果未能提取到封面图，使用默认图标
+          thumbnail = 'https://g.alicdn.com/de/youku/yx/1.0.41/favicon.ico';
+        }
+      } catch (error) {
+        console.error('获取优酷视频信息失败:', error);
+        thumbnail = 'https://g.alicdn.com/de/youku/yx/1.0.41/favicon.ico';
+      }
+    }
+    // 检查是否是腾讯视频链接
+    else if (tab.url.includes('v.qq.com/')) {
+      let vid = '';
+      
+      // 尝试从腾讯视频URL提取视频ID
+      const vidMatch = tab.url.match(/\/([a-zA-Z0-9]+)\.html/);
+      if (vidMatch && vidMatch[1]) {
+        vid = vidMatch[1];
+        thumbnail = 'https://images.weserv.nl/?url=https://v.qq.com/favicon.ico&w=128&h=128';
+      }
+    }
+    // 检查是否是爱奇艺链接
+    else if (tab.url.includes('iqiyi.com/')) {
+      thumbnail = 'https://images.weserv.nl/?url=https://www.iqiyi.com/favicon.ico&w=128&h=128';
+    }
+    // 检查是否是Netflix链接
+    else if (tab.url.includes('netflix.com/')) {
+      thumbnail = 'https://images.weserv.nl/?url=https://assets.nflxext.com/us/ffe/siteui/common/icons/nficon2016.png&w=128&h=128';
+    }
+    // 检查是否是芒果TV链接
+    else if (tab.url.includes('mgtv.com/')) {
+      try {
+        // 请求当前页面获取内容
+        const response = await fetch(tab.url);
+        const html = await response.text();
+        
+        // 使用正则表达式从页面内容中提取thumbnailUrl数组
+        const thumbnailUrlMatch = html.match(/"thumbnailUrl":\s*\[\s*"([^"]+)"/);
+        
+        if (thumbnailUrlMatch && thumbnailUrlMatch[1]) {
+          // 获取到第一个缩略图URL
+          thumbnail = thumbnailUrlMatch[1];
+        } else {
+          // 如果未能提取到缩略图，使用芒果TV默认图标
+          thumbnail = 'https://img.mgtv.com/imgotv-member/favicon.ico';
+        }
+      } catch (error) {
+        console.error('获取芒果TV视频信息失败:', error);
+        thumbnail = 'https://img.mgtv.com/imgotv-member/favicon.ico';
+      }
+    }
+    // 检查是否是Twitter/X链接
+    else if (tab.url.includes('twitter.com/') || tab.url.includes('x.com/')) {
+      // 使用Google的favicon服务获取X的图标，更可靠
+      thumbnail = 'https://www.google.com/s2/favicons?domain=x.com&sz=128';
+    }
+    // 对其他网站使用网站favicon作为缩略图
+    else {
+      const domain = new URL(tab.url).hostname;
+      thumbnail = `https://www.google.com/s2/favicons?domain=${domain}&sz=128`;
     }
   } catch (error) {
     console.error('Error getting metadata:', error);
@@ -154,7 +411,7 @@ async function savePage(tab) {
     
     pages.push(newPage);
     await chrome.storage.local.set({ pages });
-    showSuccess('Page saved successfully!');
+    showSuccess('页面保存成功！');
     
     // 自动同步
     if (await shouldAutoSync()) {
@@ -162,7 +419,7 @@ async function savePage(tab) {
     }
   } catch (error) {
     console.error('Error saving page:', error);
-    showError('Failed to save page');
+    showError('保存页面失败');
   }
 }
 
@@ -191,7 +448,7 @@ async function filterPages(searchTerm, selectedTag) {
         page.url.toLowerCase().includes(searchTerm)
       : true;
     const matchesTag = selectedTag
-     ? page.tags.includes(selectedTag) || selectedTag === 'All Tags'
+     ? page.tags.includes(selectedTag) || selectedTag === '所有标签'
      : true;
     return matchesSearch && matchesTag;
   });
@@ -220,7 +477,7 @@ async function refreshTagsFilter() {
   const previousSelectedTag = select.value;
 
   // 清空现有选项
-  select.innerHTML = '<option value="">All Tags</option>';
+  select.innerHTML = '<option value="">所有标签</option>';
   
   // 添加每个标签为选项
   Array.from(allTags).sort().forEach(tag => {
@@ -279,10 +536,6 @@ function renderCurrentTags() {
   Array.from(currentTags).forEach(tag => {
     const tagElement = document.createElement('span');
     tagElement.className = 'tag';
-    // tagElement.innerHTML = `
-    //   ${tag}
-    //   <span class="remove" onclick="removeTag('${tag}')">&times;</span>
-    // `;
     tagElement.innerHTML = `
       ${tag}
       <span class="remove" data-tag="${tag}">&times;</span>
@@ -305,7 +558,7 @@ async function handleTagsSave() {
     closeModals();
     loadSavedPages();
     refreshTagsFilter()
-    showSuccess('Tags updated successfully!');
+    showSuccess('标签更新成功！');
   }
 }
 
@@ -330,12 +583,12 @@ async function handleExport() {
     const modalTitle = document.getElementById('modalTitle');
     
     if (modal && textarea && modalTitle) {
-      modalTitle.textContent = 'Export Data';
+      modalTitle.textContent = '导出数据';
       textarea.value = exportData;
       modal.style.display = 'flex';
     }
   } catch (error) {
-    showError('Failed to export data');
+    showError('导出数据失败');
     console.error('Export error:', error);
   }
 }
@@ -346,7 +599,7 @@ function handleImport() {
   const modalTitle = document.getElementById('modalTitle');
   
   if (modal && textarea && modalTitle) {
-    modalTitle.textContent = 'Import Data';
+    modalTitle.textContent = '导入数据';
     textarea.value = '';
     modal.style.display = 'flex';
   }
@@ -356,15 +609,15 @@ async function handleImportExportConfirm() {
   const modalTitle = document.getElementById('modalTitle').textContent;
   const textarea = document.getElementById('importExportData');
   
-  if (modalTitle === 'Import Data') {
+  if (modalTitle === '导入数据') {
     try {
       const importData = JSON.parse(textarea.value);
       await chrome.storage.local.set({ pages: importData });
       loadSavedPages();
       refreshTagsFilter()
-      showSuccess('Data imported successfully');
+      showSuccess('数据导入成功');
     } catch (error) {
-      showError('Invalid import data');
+      showError('导入数据无效');
     }
   }
   
@@ -375,22 +628,16 @@ async function handleImportExportConfirm() {
 async function handleSync() {
   const syncBtn = document.getElementById('syncBtn');
   if (!syncBtn) return;
-  syncBtn.textContent = 'Syncing...';
-
-  // const syncStatus = document.createElement('div');
-  // syncStatus.className = 'sync-status';
-  // syncStatus.textContent = 'Syncing...';
-  // syncBtn.appendChild(syncStatus);
+  syncBtn.textContent = '同步中...';
   
   try {
     // 模拟同步过程
     await new Promise(resolve => setTimeout(resolve, 1000));
-    showSuccess('Sync completed!');
+    showSuccess('同步完成！');
   } catch (error) {
-    showError('Sync failed');
+    showError('同步失败');
   } finally {
-    // syncStatus.remove();
-    syncBtn.textContent = 'Sync';
+    syncBtn.textContent = '同步';
   }
 }
 
@@ -410,7 +657,11 @@ function renderPages(pages) {
   container.innerHTML = '';
   
   if (pages.length === 0) {
-    container.innerHTML = '<div style="text-align: center; color: #666;">No saved pages found</div>';
+    // 使用新的空白状态样式，确保消息跨越所有列
+    const emptyState = document.createElement('div');
+    emptyState.className = 'empty-state';
+    emptyState.textContent = '没有找到已保存的页面';
+    container.appendChild(emptyState);
     return;
   }
   
@@ -426,145 +677,120 @@ function highlightText(text, searchTerm) {
   return text.replace(regex, '<span style="background-color: yellow;">$1</span>');
 }
 
-function createPageCard1(page) {
-  const card = document.createElement('div');
-  card.className = 'page-card';
-  
-  const thumbnailImg = document.createElement('img');
-  thumbnailImg.className = 'thumbnail';
-  thumbnailImg.src = page.thumbnail || 'placeholder.png';
-  thumbnailImg.onerror = () => { thumbnailImg.src = 'placeholder.png'; };
-  
-  const info = document.createElement('div');
-  info.className = 'page-info';
-  
-  const title = document.createElement('div');
-  title.className = 'page-title';
-  title.textContent = page.title;
-  
-  const tags = document.createElement('div');
-  tags.className = 'page-tags';
-  page.tags.forEach(tag => {
-    const tagElement = document.createElement('span');
-    tagElement.className = 'tag';
-    tagElement.textContent = tag;
-    tags.appendChild(tagElement);
-  });
-  
-  const timestamp = document.createElement('div');
-  timestamp.className = 'timestamp';
-  timestamp.textContent = new Date(page.timestamp).toLocaleString();
-  
-  const actions = document.createElement('div');
-  actions.className = 'card-actions';
-  
-  const editTags = document.createElement('button');
-  editTags.className = 'secondary-btn';
-  editTags.textContent = 'Edit Tags';
-  editTags.onclick = (e) => {
-    e.stopPropagation();
-    showTagsModal(page.id);
-  };
-  
-  const deleteBtn = document.createElement('button');
-  deleteBtn.className = 'secondary-btn';
-  deleteBtn.textContent = 'Delete';
-  deleteBtn.onclick = async (e) => {
-    e.stopPropagation();
-    await deletePage(page.id);
-    loadSavedPages();
-  };
-  
-  info.appendChild(title);
-  info.appendChild(tags);
-  info.appendChild(timestamp);
-  
-  actions.appendChild(editTags);
-  actions.appendChild(deleteBtn);
-  
-  card.appendChild(thumbnailImg);
-  card.appendChild(info);
-  card.appendChild(actions);
-  
-  card.onclick = () => {
-    chrome.tabs.create({ url: page.url });
-  };
-  
-  return card;
-}
-
-
 function createPageCard(page, searchTerm) {
   const card = document.createElement('div');
   card.className = 'page-card';
   
+  // 整个卡片点击打开URL
+  card.addEventListener('click', () => {
+    chrome.tabs.create({ url: page.url });
+  });
+  
+  // 缩略图
   const thumbnailImg = document.createElement('img');
   thumbnailImg.className = 'thumbnail';
   thumbnailImg.src = page.thumbnail || 'placeholder.png';
   thumbnailImg.onerror = () => { thumbnailImg.src = 'placeholder.png'; };
   
+  // 信息区
   const info = document.createElement('div');
   info.className = 'page-info';
   
   // 高亮标题
   const title = document.createElement('div');
   title.className = 'page-title';
-  title.innerHTML = highlightText(page.title, searchTerm); // 使用 highlightText
   
-  // 高亮 URL（可选）
+  // 处理标题，确保即使有高亮也能正确显示省略号
+  const titleText = highlightText(page.title || '无标题', searchTerm);
+  title.innerHTML = titleText;
+  title.title = page.title || '无标题'; // 添加完整标题作为提示
+  
+  // 高亮 URL
   const url = document.createElement('div');
-  url.className = 'page-url'; // 使用类似样式
-  url.innerHTML = highlightText(page.url, searchTerm); // 使用 highlightText
+  url.className = 'page-url';
+  url.innerHTML = highlightText(page.url || '#', searchTerm);
+  url.title = page.url || '#'; // 添加完整URL作为提示
   
+  // 标签容器
   const tags = document.createElement('div');
   tags.className = 'page-tags';
-  page.tags.forEach(tag => {
-    const tagElement = document.createElement('span');
-    tagElement.className = 'tag';
-    tagElement.textContent = tag;
-    tags.appendChild(tagElement);
-  });
   
+  // 最多显示1个标签，超过则显示"+n"
+  const maxVisibleTags = 1; // 减少为1个，节省空间
+  if (page.tags && page.tags.length > 0) {
+    const visibleTags = page.tags.slice(0, maxVisibleTags);
+    visibleTags.forEach(tag => {
+      const tagElement = document.createElement('span');
+      tagElement.className = 'tag';
+      tagElement.textContent = tag;
+      tags.appendChild(tagElement);
+    });
+    
+    // 如果有更多标签，添加+n标签
+    if (page.tags.length > maxVisibleTags) {
+      const moreTag = document.createElement('span');
+      moreTag.className = 'tag';
+      moreTag.textContent = `+${page.tags.length - maxVisibleTags}`;
+      
+      // 鼠标悬停时显示所有标签
+      const allTags = page.tags.join(', ');
+      moreTag.title = allTags;
+      
+      tags.appendChild(moreTag);
+    }
+  }
+  
+  // 时间戳
   const timestamp = document.createElement('div');
   timestamp.className = 'timestamp';
-  timestamp.textContent = new Date(page.timestamp).toLocaleString();
   
+  // 格式化日期，只显示日期部分，不显示时间，节省空间
+  const date = new Date(page.timestamp);
+  // 使用更紧凑的日期格式，例如"MM-DD"
+  const month = date.getMonth() + 1;
+  const day = date.getDate();
+  timestamp.textContent = `${month}-${day}`;
+  timestamp.title = date.toLocaleString(); // 完整时间作为提示
+  
+  // 操作按钮区
   const actions = document.createElement('div');
   actions.className = 'card-actions';
   
+  // 编辑标签按钮
   const editTags = document.createElement('button');
   editTags.className = 'secondary-btn';
-  editTags.textContent = 'Edit Tags';
+  editTags.textContent = '标签'; // 缩短文本
+  editTags.title = '编辑标签'; // 添加提示
   editTags.onclick = (e) => {
-    e.stopPropagation();
+    e.stopPropagation(); // 阻止事件冒泡
     showTagsModal(page.id);
   };
   
+  // 删除按钮
   const deleteBtn = document.createElement('button');
   deleteBtn.className = 'secondary-btn';
-  deleteBtn.textContent = 'Delete';
+  deleteBtn.textContent = '删除';
   deleteBtn.onclick = async (e) => {
-    e.stopPropagation();
+    e.stopPropagation(); // 阻止事件冒泡
     await deletePage(page.id);
-    await refreshTagsFilter()
-    await loadSavedPages()
+    await refreshTagsFilter();
+    await loadSavedPages();
   };
   
+  // 组装信息区
   info.appendChild(title);
-  info.appendChild(url); // 添加高亮的 URL
+  info.appendChild(url);
   info.appendChild(tags);
   info.appendChild(timestamp);
   
+  // 组装操作区
   actions.appendChild(editTags);
   actions.appendChild(deleteBtn);
   
+  // 组装卡片
   card.appendChild(thumbnailImg);
   card.appendChild(info);
   card.appendChild(actions);
-  
-  card.onclick = () => {
-    chrome.tabs.create({ url: page.url });
-  };
   
   return card;
 }
@@ -575,7 +801,7 @@ async function deletePage(id) {
   const pages = savedPages.pages || [];
   const updatedPages = pages.filter(page => page.id !== id);
   await chrome.storage.local.set({ pages: updatedPages });
-  showSuccess('Page deleted successfully');
+  showSuccess('页面删除成功');
 }
 
 
@@ -589,9 +815,10 @@ function showNotification(message, type = 'success') {
     transform: translateX(-50%);
     background: ${type === 'success' ? '#4CAF50' : '#f44336'};
     color: white;
-    padding: 10px 20px;
+    padding: 8px 16px;
     border-radius: 4px;
     z-index: 1000;
+    font-size: 13px;
   `;
   notification.textContent = message;
   document.body.appendChild(notification);

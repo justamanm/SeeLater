@@ -1,52 +1,70 @@
 <!DOCTYPE html>
 <html>
 <head>
+  <meta charset="UTF-8">
   <title>Save for Later</title>
   <style>
     body {
-      width: 500px;
-      padding: 15px;
-      font-family: Arial, sans-serif;
+      width: 720px; /* 减少宽度 */
+      padding: 15px 20px; /* 增加内边距 */
+      margin: 0 auto; /* 水平居中 */
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Microsoft YaHei", "PingFang SC", "Segoe UI", sans-serif;
+      overflow-x: hidden; /* 防止水平滚动 */
+      background-color: #f9f9f9; /* 添加浅灰色背景 */
     }
     
     /* 顶部操作区 */
     .actions {
       display: flex;
-      gap: 10px;
-      margin-bottom: 15px;
+      gap: 10px; /* 增加按钮间距 */
+      margin-bottom: 15px; /* 增加底部间距 */
     }
     
     /* 搜索和过滤区 */
     .search-filter {
       display: flex;
-      gap: 10px;
-      margin-bottom: 15px;
+      gap: 10px; /* 增加元素间距 */
+      margin-bottom: 15px; /* 增加底部间距 */
       cursor: pointer;
     }
 
     #tagFilter {
       cursor: pointer;
+      max-width: 140px; /* 限制下拉框宽度 */
+      height: 32px; /* 增加高度 */
+      font-size: 14px; /* 增加字体大小 */
     }
     
     input[type="text"], select {
-      padding: 8px;
+      padding: 6px 10px; /* 增加内边距 */
       border: 1px solid #ddd;
       border-radius: 4px;
-      font-size: 14px;
+      font-size: 14px; /* 增加字体大小 */
     }
     
     .search-box {
       flex: 1;
+      height: 32px; /* 增加高度 */
     }
     
     /* 标签管理 */
     /* 按钮样式 */
     button {
-      padding: 8px 12px;
+      padding: 4px 6px; /* 进一步减小按钮内边距 */
       border: none;
       border-radius: 4px;
       cursor: pointer;
-      font-size: 14px;
+      font-size: 12px;
+      font-family: inherit;
+    }
+
+    /* 顶部主要按钮样式 */
+    .actions button {
+      padding: 8px 16px; /* 增加顶部按钮内边距 */
+      font-size: 14px; /* 增加顶部按钮字体大小 */
+      font-weight: 500; /* 添加中等字重 */
+      height: 34px; /* 固定高度 */
+      min-width: 70px; /* 设置最小宽度 */
     }
 
     #newTagAdd {
@@ -58,17 +76,17 @@
       display: flex;
       gap: 5px;
       flex-wrap: wrap;
-      margin: 10px 0;
+      margin: 8px 0;
     }
     
     .tag {
       background: #e0e0e0;
-      padding: 2px 8px;
-      border-radius: 12px;
-      font-size: 12px;
+      padding: 1px 4px; /* 减小标签内边距 */
+      border-radius: 6px;
+      font-size: 9px; /* 减小标签字体 */
       display: flex;
       align-items: center;
-      gap: 5px;
+      gap: 2px;
     }
     
     .tag .remove {
@@ -86,45 +104,46 @@
       color: #333;
     }
     
-    /* #pagesList {
-      width: 100%; 
-      max-width: 100%; 
-    } */
-
-    /* 卡片样式优化 */
-    .page-card1 {
-      display: flex;
-      padding: 12px;
-      margin-bottom: 12px;
-      border: 1px solid #ddd;
-      border-radius: 6px;
-      transition: box-shadow 0.3s;
-      /* width: 100%; 
-      max-width: 100%; */
+    /* 网格布局容器，固定列宽 */
+    #pagesList {
+      display: grid;
+      grid-template-columns: repeat(5, 125px); /* 修改为5列，保持卡片宽度不变 */
+      gap: 10px; /* 稍微增加间距 */
+      width: 100%;
+      justify-content: center; /* 内容居中 */
+      max-width: 680px; /* 限制最大宽度 */
+      margin: 0 auto; /* 水平居中 */
+      background-color: white; /* 白色背景 */
+      padding: 15px; /* 增加内边距 */
+      border-radius: 6px; /* 添加圆角 */
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05); /* 轻微阴影 */
     }
+    
+    /* 卡片样式更新为垂直布局，固定宽度 */
     .page-card {
-      display: flex; /* 横向排列 */
-      justify-content: space-between; /* 两端对齐 */
-      align-items: center; /* 垂直居中 */
-      padding: 12px;
-      margin-bottom: 12px;
-      border: 1px solid #ddd;
-      border-radius: 6px;
-      transition: box-shadow 0.3s;
-      width: 100%; /* 确保卡片不超出父元素 */
-      box-sizing: border-box; /* 包括 padding 在内 */
+      display: flex;
+      flex-direction: column; /* 垂直布局 */
+      padding: 6px; /* 减小内边距 */
+      border: 1px solid #eee;
+      border-radius: 4px;
+      transition: box-shadow 0.2s;
+      height: 100%;
+      box-sizing: border-box;
+      width: 100%; /* 填充容器宽度 */
+      max-width: 125px; /* 减小最大宽度 */
+      background-color: white; /* 确保卡片背景为白色 */
     }
     
     .page-card:hover {
-      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      box-shadow: 0 1px 4px rgba(0,0,0,0.1);
     }
     
     .thumbnail {
-      width: 120px;
-      height: 67px;
+      width: 100%; /* 缩略图宽度撑满卡片 */
+      height: 70px; /* 进一步减小高度 */
       object-fit: cover;
-      border-radius: 4px;
-      margin-right: 12px;
+      border-radius: 3px;
+      margin-bottom: 4px; /* 减少底部间距 */
       cursor: pointer;
     }
     
@@ -132,53 +151,59 @@
       flex: 1;
       display: flex;
       flex-direction: column;
-      gap: 5px;
-      overflow: hidden; /* 隐藏多余内容 */
-      word-wrap: break-word; /* 启用换行 */
-      cursor: pointer;
+      gap: 2px; /* 减小元素间距 */
+      overflow: hidden; /* 确保内容不溢出 */
+      width: 100%; /* 确保宽度填满父容器 */
     }
     
-    .page-title1 {
-      font-weight: bold;
-      font-size: 14px;
-    }
-    
-    /* 页面标题 */
+    /* 页面标题，确保截断正常工作 */
     .page-title {
       font-weight: bold;
-      font-size: 14px;
-      max-width: 100%; /* 限制宽度 */
-      white-space: nowrap; /* 禁止换行 */
-      overflow: hidden; /* 隐藏溢出内容 */
-      text-overflow: ellipsis; /* 溢出部分显示省略号 */
+      font-size: 11px; /* 减小字体 */
+      width: 100%; /* 填满父容器 */
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      display: block; /* 保证元素是块级，可以应用溢出样式 */
     }
 
-    /* 页面 URL */
+    /* 页面URL，确保截断正常工作 */
     .page-url {
-      font-size: 12px;
-      color: #666;
-      max-width: 100%; /* 限制宽度 */
-      white-space: nowrap; /* 禁止换行 */
-      overflow: hidden; /* 隐藏溢出内容 */
-      text-overflow: ellipsis; /* 溢出部分显示省略号 */
+      font-size: 9px; /* 减小字体 */
+      color: #777;
+      width: 100%; /* 填满父容器 */
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      display: block; /* 保证元素是块级，可以应用溢出样式 */
     }
 
     .page-tags {
       display: flex;
-      gap: 5px;
+      gap: 2px; /* 减小标签间距 */
       flex-wrap: wrap;
+      margin: 2px 0;
+      width: 100%; /* 保证标签容器宽度限制 */
     }
     
     .timestamp {
-      font-size: 12px;
-      color: #666;
+      font-size: 8px; /* 减小字体 */
+      color: #888;
+      margin-bottom: 3px;
     }
     
     .card-actions {
-      /* flex: 1; */
       display: flex;
-      gap: 8px;
-      margin-left: 8px;
+      gap: 3px; /* 减小按钮间距 */
+      margin-top: auto; /* 将按钮推到底部 */
+      width: 100%; /* 确保按钮区域填满卡片宽度 */
+    }
+    
+    .card-actions button {
+      flex: 1; /* 按钮平分空间 */
+      font-size: 9px; /* 减小按钮字体 */
+      padding: 2px 1px; /* 减小按钮内边距 */
+      white-space: nowrap; /* 确保按钮文字不换行 */
     }
     
     /* 导入/导出对话框 */
@@ -192,36 +217,57 @@
       background: rgba(0,0,0,0.5);
       align-items: center;
       justify-content: center;
+      z-index: 1001; /* 确保在通知上方 */
     }
     
     .modal-content {
       background: white;
-      padding: 20px;
+      padding: 16px;
       border-radius: 8px;
       max-width: 400px;
       width: 100%;
+      font-family: inherit; /* 继承主字体 */
     }
     
     /* 云同步状态 */
     .sync-status {
-      font-size: 12px;
+      font-size: 11px;
       color: #666;
-      margin-top: 5px;
+      margin-top: 4px;
+    }
+
+    /* 确保高亮的文本也能正常省略 */
+    .page-title span, .page-url span {
+      display: inline; /* 内联显示高亮的部分 */
+    }
+
+    /* 空白状态提示 */
+    .empty-state {
+      grid-column: 1 / -1; /* 跨越所有列 */
+      text-align: center;
+      color: #666;
+      padding: 16px;
+    }
+    
+    /* 确保所有内容都在视图区域内 */
+    * {
+      max-width: 100%;
+      box-sizing: border-box;
     }
   </style>
 </head>
 <body>
   <div class="actions">
-    <button id="saveButton" class="primary-btn">Save Current Page</button>
-    <button id="exportBtn" class="secondary-btn">Export</button>
-    <button id="importBtn" class="secondary-btn">Import</button>
-    <button id="syncBtn" class="secondary-btn">Sync</button>
+    <button id="saveButton" class="primary-btn">保存</button>
+    <button id="exportBtn" class="secondary-btn">导出</button>
+    <button id="importBtn" class="secondary-btn">导入</button>
+    <button id="syncBtn" class="secondary-btn">同步</button>
   </div>
   
   <div class="search-filter">
-    <input type="text" id="searchBox" class="search-box" placeholder="Search saved pages...">
+    <input type="text" id="searchBox" class="search-box" placeholder="搜索已保存页面...">
     <select id="tagFilter">
-      <option value="">All Tags</option>
+      <option value="">所有标签</option>
     </select>
   </div>
   
@@ -230,15 +276,15 @@
   <!-- 添加标签对话框 -->
   <div id="addTagModal" class="modal">
     <div class="modal-content">
-      <h3>Add Tags</h3>
+      <h3>添加标签</h3>
       <div class="tag-add">
-        <input type="text" id="newTagInput" placeholder="Enter tag name">
-        <button id="newTagAdd">add</button>
+        <input type="text" id="newTagInput" placeholder="输入标签名称">
+        <button id="newTagAdd">添加</button>
       </div>
       <div class="tags-input" id="currentTags"></div>
       <div class="modal-actions">
-        <button class="primary-btn" id="saveTagsBtn">Save</button>
-        <button class="secondary-btn" id="cancelTagsBtn">Cancel</button>
+        <button class="primary-btn" id="saveTagsBtn">保存</button>
+        <button class="secondary-btn" id="cancelTagsBtn">取消</button>
       </div>
     </div>
   </div>
@@ -246,15 +292,15 @@
   <!-- 导入/导出对话框 -->
   <div id="importExportModal" class="modal">
     <div class="modal-content">
-      <h3 id="modalTitle">Import/Export Data</h3>
+      <h3 id="modalTitle">导入/导出数据</h3>
       <textarea id="importExportData" rows="10" style="width: 100%; margin: 10px 0;"></textarea>
       <div class="modal-actions">
-        <button class="primary-btn" id="confirmImportExportBtn">Confirm</button>
-        <button class="secondary-btn" id="cancelImportExportBtn">Cancel</button>
+        <button class="primary-btn" id="confirmImportExportBtn">确认</button>
+        <button class="secondary-btn" id="cancelImportExportBtn">取消</button>
       </div>
     </div>
   </div>
-  
+
   <script src="popup.js"></script>
 </body>
 </html>

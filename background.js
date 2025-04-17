@@ -27,27 +27,33 @@ async function savePage(tab) {
 async function getPageMetadata(tab) {
   let thumbnail = '';
   
-  // Execute content script to get metadata
-  const result = await chrome.tabs.executeScript(tab.id, {
-    code: `
-      const ogImage = document.querySelector('meta[property="og:image"]');
-      const thumbnail = ogImage ? ogImage.content : '';
-      
-      // Special handling for YouTube
-      const isYouTube = window.location.hostname.includes('youtube.com');
-      const videoId = isYouTube ? new URLSearchParams(window.location.search).get('v') : null;
-      
-      ({ thumbnail, videoId });
-    `
-  });
+  // 使用URL和标准通用API检测缩略图，无需脚本执行权限
   
-  const { thumbnail: ogThumbnail, videoId } = result[0];
-  
-  // If it's YouTube, use video thumbnail
-  if (videoId) {
-    thumbnail = `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
-  } else {
-    thumbnail = ogThumbnail;
+  // 检查是否是YouTube链接
+  if (tab.url.includes('youtube.com/watch') || tab.url.includes('youtu.be/')) {
+    let videoId = '';
+    
+    // 从YouTube URL提取视频ID
+    if (tab.url.includes('youtube.com/watch')) {
+      const url = new URL(tab.url);
+      videoId = url.searchParams.get('v');
+    } else if (tab.url.includes('youtu.be/')) {
+      videoId = tab.url.split('youtu.be/')[1].split('?')[0];
+    }
+    
+    if (videoId) {
+      thumbnail = `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
+    }
+  } 
+  // 检查是否是Twitter/X链接
+  else if (tab.url.includes('twitter.com/') || tab.url.includes('x.com/')) {
+    // 使用Twitter的默认图标
+    thumbnail = 'https://abs.twimg.com/responsive-web/web/icon-default.3c3b2244.png';
+  }
+  // 对其他网站使用网站favicon作为缩略图
+  else {
+    const domain = new URL(tab.url).hostname;
+    thumbnail = `https://www.google.com/s2/favicons?domain=${domain}&sz=128`;
   }
   
   return { thumbnail };
